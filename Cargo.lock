@@ -328,10 +328,13 @@ name = "krb5proxy"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "bytes",
+ "http",
  "http-body-util",
  "hyper",
  "hyper-util",
  "libgssapi",
+ "pin-project-lite",
  "tokio",
 ]
 
