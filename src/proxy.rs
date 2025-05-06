@@ -5,13 +5,11 @@ use libgssapi::context::{ClientCtx, CtxFlags};
 use base64::engine::Engine;
 use tokio::io::{AsyncWriteExt, AsyncReadExt, ErrorKind};
 use tokio::net::TcpStream;
-use hyper::body::{Body, Incoming};
 use hyper::{Request, Response};
 use bytes::Bytes;
-use hyper::upgrade::Upgraded;
 use hyper::Error;
 
-use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
+use http_body_util::{combinators::BoxBody, BodyExt, Empty};
 use http::StatusCode;
 
 type ClientBuilder = hyper::client::conn::http1::Builder;
@@ -83,6 +81,7 @@ impl RequestContext {
     }
 
     pub async fn handle_waiting_for_request(&mut self) -> RequestState {
+
         // Handle waiting for request
         // This is where you would typically read the request from the client
         // For now, we'll just simulate it with a sleep
@@ -92,11 +91,8 @@ impl RequestContext {
 
     pub async fn handle_getting_ticket(&mut self) -> RequestState {
 
-
         let mut desired_mechs = OidSet::new().unwrap();
         desired_mechs.add(&GSS_MECH_KRB5).unwrap();
-
-        
         
         let parsed_name = match Name::new(&self.kerberos_service, Some(&GSS_NT_HOSTBASED_SERVICE)) {
             Ok(name) => name,
@@ -120,8 +116,7 @@ impl RequestContext {
                 return RequestState::Closing;
             }
         };
-    
-        // println!("Client context: {:#?}", client_ctx);
+
     
         let gss_buffer = match client_ctx.step(None, None) {
             Ok(t) => t,
@@ -156,11 +151,9 @@ impl RequestContext {
 
         if self.original_request.as_ref().unwrap().method() == "CONNECT" {
             println!("Handling CONNECT request");
-
             return RequestState::Tunelling;
         } else {
             println!("Handling other request");
-            
             return RequestState::Forwarding;
         }
     }
@@ -302,16 +295,15 @@ impl RequestContext {
     }
 
     pub async fn handle_closing(&mut self) -> RequestState {
-        // Handle closing the connection
-        // This is where you would typically clean up resources
-        // For now, we'll just simulate it with a sleep
+
+        // Handle closing - examine states, return errors, clean resources, etc
 
         return RequestState::Closing;
     }
 
 }
 
-fn empty() -> BoxBody<Bytes, hyper::Error> {
+pub fn empty() -> BoxBody<Bytes, hyper::Error> {
     Empty::<Bytes>::new()
         .map_err(|never| match never {})
         .boxed()
