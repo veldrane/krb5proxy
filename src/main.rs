@@ -5,7 +5,7 @@ use krb5proxy::upstream::connect;
 use libgssapi::name::Name;
 use base64::engine::Engine;
 
-use tokio::io::{copy_bidirectional, AsyncWriteExt, AsyncReadExt};
+use tokio::io::{copy_bidirectional, AsyncWriteExt, AsyncReadExt, ErrorKind};
 use tokio::net::{TcpListener, TcpStream};
 use std::net::SocketAddr;
 
@@ -14,7 +14,10 @@ use bytes::Bytes;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
 use hyper::service::service_fn;
 use hyper::upgrade::Upgraded;
+use hyper::body::Body;
 use hyper::{Method, Request, Response};
+
+use krb5proxy::proxy::{RequestState, RequestContext};
 
 use http::StatusCode;
 
@@ -30,7 +33,7 @@ type ServerBuilder = hyper::server::conn::http1::Builder;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8080));
+    let addr = SocketAddr::from(([10, 4, 0, 21], 8080));
 
     let listener = TcpListener::bind(addr).await?;
     println!("Listening on http://{}", addr);
@@ -43,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             if let Err(err) = ServerBuilder::new()
                 .preserve_header_case(true)
                 .title_case_headers(true)
-                .serve_connection(io, service_fn(proxy))
+                .serve_connection(io, service_fn(request_machine))
                 .with_upgrades()
                 .await
             {
@@ -52,6 +55,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         });
     }
 
+
+}
+
+
+async fn request_machine(req: Request<hyper::body::Incoming>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
+
+    let mut state = RequestState::WaitingForRequest;
+    let mut context = RequestContext::new(req).await;
+
+loop {
+    
+    state = state.next(&mut context).await;
+
+    if matches!(state, RequestState::Closing) {
+        break; // konec práce
+        }
+    }
+
+    println!("state: {:?}", context);
+
+    let resp_to_client = context.original_response.take().unwrap();
+
+    //Ok(response.map(|b| b.boxed()))
+
+    //let mut resp_to_client = Response::new(empty());
+    //*resp_to_client.status_mut() = StatusCode::OK;
+
+    Ok(resp_to_client)
 
 }
 
@@ -95,18 +126,27 @@ async fn proxy(
 
         let connect_req = format!(
             "CONNECT {} HTTP/1.1\r\nHost: {}\r\nProxy-Authorization: {}\r\n\r\n",
-            req.uri(), "www.email.cz", proxy_string
+            req.uri(), "email.cz", proxy_string
         );
 
         proxy_stream.write_all(connect_req.as_bytes()).await.unwrap();
     
         // 3. Přečti odpověď a ověř 200 OK
-        let mut buf = [0u8; 1024];
+        let mut buf = [0u8; 4096];
+
         let n = proxy_stream.read(&mut buf).await.unwrap();
+
+        println!("buf: {:?}", &buf[..n]);
+
+        
+
         let proxy_response = String::from_utf8_lossy(&buf[..n]);
 
         if !proxy_response.starts_with("HTTP/1.1 200") {
-            let client_response = Response::new(empty());
+            let client_response = Response::builder()
+                .status(StatusCode::FORBIDDEN) // tady změníš kód
+                .body(full("Forbidden"))
+                .unwrap();
             return Ok(client_response);
         }
 
@@ -115,7 +155,21 @@ async fn proxy(
 
         tokio::task::spawn(async move {
             let mut upgraded_client = TokioIo::new(hyper::upgrade::on(req).await.unwrap());
-            tokio::io::copy_bidirectional(&mut upgraded_client, &mut proxy_stream).await.unwrap();
+            match tokio::io::copy_bidirectional(&mut upgraded_client, &mut proxy_stream).await {
+                Ok((from_client, from_server)) => {
+                    println!(
+                        "client wrote {} bytes and received {} bytes",
+                        from_client, from_server
+                    );
+                }
+                Err(e) if e.kind() == ErrorKind::NotConnected => {
+                    // benigní stav: peer poslal FIN a pak shutdown; můžeme to ignorovat
+                    println!("Tunel ENOTCONN při shutdown, ignoruji");
+                }
+                Err(e) => {
+                    println!("Tunel selhal: {:?}", e);
+                }
+            }
         });
 
         //let mut upgraded_proxy = TokioIo::new(proxy_stream);
@@ -124,6 +178,8 @@ async fn proxy(
         //tokio::io::copy_bidirectional(&mut upgraded_client, &mut proxy_stream).await.unwrap();
 
         //println!("upgraded_client2: {:?}", upgraded_client);
+
+
         let mut resp_to_client = Response::new(empty());
         *resp_to_client.status_mut() = StatusCode::OK;
 
@@ -213,7 +269,7 @@ async fn tunnel(upgraded: Upgraded, addr: String) -> std::io::Result<()> {
 
 async fn get_apreq_header() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
 
-        let mut desired_mechs = OidSet::new()?;
+    let mut desired_mechs = OidSet::new()?;
     desired_mechs.add(&GSS_MECH_KRB5)?;
 
 
