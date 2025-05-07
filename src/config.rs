@@ -1,3 +1,5 @@
+use std::{u16, u64};
+
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -50,5 +52,12 @@ impl Config {
         };
 
         listen_ip.to_string()
+    }
+
+    pub fn get_listen_port(&self) -> u16 {
+        match self.listen_address.split(":").nth(2) {
+            Some(port) => port.parse::<u16>().unwrap_or(8080),
+            None => 8080,
+        }
     }
 }

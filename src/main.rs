@@ -36,10 +36,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let ip: std::net::IpAddr = config.get_listen_ip()
         .parse()
         .expect("Invalid IP address");
-    let addr = SocketAddr::new(ip, config.proxy_port);
+
+    let port = config.get_listen_port();
+    let addr = SocketAddr::new(ip, port);
 
     let listener = TcpListener::bind(addr).await?;
-    println!("Listening on http://{}", addr);
+    println!("Listening on http://{}:{}", ip, port);
 
     loop {
         let (stream, _) = listener.accept().await?;
