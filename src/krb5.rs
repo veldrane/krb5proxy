@@ -13,7 +13,7 @@ pub fn setup_client_ctx(service_name: Name, desired_mechs: &OidSet )-> Result<Cl
         None, None, CredUsage::Initiate, Some(&desired_mechs)
     ).expect("faild to acquire client credentials");
 
-    println!("acquired default client credentials: {:#?}", client_cred);
+    // println!("acquired default client credentials: {:#?}", client_cred);
 
 
     Ok(ClientCtx::new(
