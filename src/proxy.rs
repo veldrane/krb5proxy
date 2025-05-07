@@ -5,20 +5,20 @@ use libgssapi::context::{ClientCtx, CtxFlags};
 use base64::engine::Engine;
 use tokio::io::{AsyncWriteExt, AsyncReadExt, ErrorKind};
 use tokio::net::TcpStream;
-use hyper::body::{Body, Incoming};
 use hyper::{Request, Response};
 use bytes::Bytes;
-use hyper::upgrade::Upgraded;
 use hyper::Error;
+use http_body_util::{combinators::BoxBody, BodyExt, Empty};
 
-use http_body_util::{combinators::BoxBody, BodyExt, Empty, Full};
 use http::StatusCode;
 
 type ClientBuilder = hyper::client::conn::http1::Builder;
+use crate::config::Config;
 
 #[path = "../benches/support/mod.rs"]
 mod support;
 use support::TokioIo;
+
 
 #[derive(Debug)]
 pub enum RequestState {
@@ -42,10 +42,8 @@ enum StateErrors {
 
 #[derive(Debug)]
 pub struct RequestContext {
-    kerberos_service: Vec<u8>,
-    proxy_ip: String,
-    proxy_port: u16,
     ap_req: Option<String>,
+    tcp_stream: Option<TcpStream>,
     last_state: RequestState,
     last_error: StateErrors,
     error_message: Option<String>,
@@ -55,13 +53,13 @@ pub struct RequestContext {
 
 impl RequestState {
 
-pub async fn next(self, ctx: &mut RequestContext) -> RequestState {
+pub async fn next(self, ctx: &mut RequestContext, config: &Config) -> RequestState {
     match self {
         RequestState::WaitingForRequest => ctx.handle_waiting_for_request().await,
-        RequestState::GettingTicket => ctx.handle_getting_ticket().await,
-        RequestState::ConnectingToProxy => ctx.handle_connecting_to_proxy().await,
+        RequestState::GettingTicket => ctx.handle_getting_ticket(&config).await,
+        RequestState::ConnectingToProxy => ctx.handle_connecting_to_proxy(&config).await,
         RequestState::Tunelling => ctx.handle_tunelling().await,
-        RequestState::Forwarding => ctx.handle_forwarding().await,
+        RequestState::Forwarding => ctx.handle_forwarding(&config).await,
         RequestState::Closing => ctx.handle_closing().await,
         }
     }
@@ -70,10 +68,8 @@ pub async fn next(self, ctx: &mut RequestContext) -> RequestState {
 impl RequestContext {
     pub async fn new(req: Request<hyper::body::Incoming>) -> Self {
         RequestContext {
-            kerberos_service: b"HTTP@proxy.class.syscallx86.com".to_vec(),
-            proxy_ip: "10.4.0.254".to_string(),
-            proxy_port: 8080,
             ap_req: None,
+            tcp_stream: None,
             last_state: RequestState::WaitingForRequest,
             last_error: StateErrors::NoError,
             error_message: None,
@@ -83,6 +79,7 @@ impl RequestContext {
     }
 
     pub async fn handle_waiting_for_request(&mut self) -> RequestState {
+
         // Handle waiting for request
         // This is where you would typically read the request from the client
         // For now, we'll just simulate it with a sleep
@@ -90,15 +87,14 @@ impl RequestContext {
         return RequestState::GettingTicket;
     }
 
-    pub async fn handle_getting_ticket(&mut self) -> RequestState {
+    pub async fn handle_getting_ticket(&mut self, config: &Config) -> RequestState {
 
+        self.last_state = RequestState::GettingTicket;
 
         let mut desired_mechs = OidSet::new().unwrap();
         desired_mechs.add(&GSS_MECH_KRB5).unwrap();
-
         
-        
-        let parsed_name = match Name::new(&self.kerberos_service, Some(&GSS_NT_HOSTBASED_SERVICE)) {
+        let parsed_name = match Name::new(&config.kerberos_service, Some(&GSS_NT_HOSTBASED_SERVICE)) {
             Ok(name) => name,
             Err(e) => {
                 self.last_error = StateErrors::FailedGettingServiceTicket;
@@ -120,8 +116,7 @@ impl RequestContext {
                 return RequestState::Closing;
             }
         };
-    
-        // println!("Client context: {:#?}", client_ctx);
+
     
         let gss_buffer = match client_ctx.step(None, None) {
             Ok(t) => t,
@@ -145,30 +140,23 @@ impl RequestContext {
             },
         };
 
-        self.ap_req = Some(ap_req.clone());
+        self.ap_req = Some(ap_req);
     
         return RequestState::ConnectingToProxy;
     
     }
 
 
-    pub async fn handle_connecting_to_proxy(&mut self) -> RequestState {
+    pub async fn handle_connecting_to_proxy(&mut self, config: &Config) -> RequestState {
 
-        if self.original_request.as_ref().unwrap().method() == "CONNECT" {
-            println!("Handling CONNECT request");
+        self.last_state = RequestState::ConnectingToProxy;
 
-            return RequestState::Tunelling;
-        } else {
-            println!("Handling other request");
-            
+        if self.original_request.as_ref().unwrap().method() != "CONNECT" {
+            // println!("Handling other request");
             return RequestState::Forwarding;
         }
-    }
 
-    pub async fn handle_tunelling(&mut self) -> RequestState {
-
-
-        let mut proxy_stream = match TcpStream::connect((self.proxy_ip.clone(), self.proxy_port)).await  {
+        let mut proxy_stream = match TcpStream::connect((config.proxy_ip.clone(), config.proxy_port)).await  {
             Ok(stream) => stream,
             Err(e) => {
                 self.last_error = StateErrors::FailedProxyConnection;
@@ -186,7 +174,7 @@ impl RequestContext {
         );
 
         match proxy_stream.write_all(connect_req.as_bytes()).await {
-            Ok(_) => println!("CONNECT request sent to proxy"),
+            Ok(_) => {} //println!("CONNECT request sent to proxy"),
             Err(e) => {
                 self.last_error = StateErrors::FailedProxyConnection;
                 self.error_message = Some(format!("Failed to send CONNECT request: {:#?}", e));
@@ -203,12 +191,18 @@ impl RequestContext {
             return RequestState::Closing;
         }
 
-        // Removed try_clone as TcpStream cannot be cloned; self.proxy_stream is not set.
+        self.tcp_stream = Some(proxy_stream);
 
+        return RequestState::Tunelling;
+    }
 
-        //let mut upgraded_client = TokioIo::new(upgraded);
+    pub async fn handle_tunelling(&mut self) -> RequestState {
 
+        self.last_state = RequestState::Tunelling;
+
+        let mut proxy_stream = self.tcp_stream.take().unwrap();
         let mut original_request = self.original_request.take().unwrap();
+        
         let on_upgrade = hyper::upgrade::on(&mut original_request);
 
         let mut resp_to_client = Response::new(empty());
@@ -223,8 +217,8 @@ impl RequestContext {
             match tokio::io::copy_bidirectional(&mut client_io, &mut proxy_stream).await {
                 Ok((from_client, from_server)) => {
                     println!(
-                        "client wrote {} bytes and received {} bytes",
-                        from_client, from_server
+                        "client wrote {} bytes and received {} bytes for uri {}",
+                        from_client, from_server, original_request.uri()
                     );
                 }
                 Err(e) if e.kind() == ErrorKind::NotConnected => {
@@ -237,7 +231,7 @@ impl RequestContext {
             }
         });
 
-        println!("proxy_response: {:?}", proxy_response);
+        // println!("proxy_response: {:?}", proxy_response);
 
         let mut resp_to_client = Response::new(empty());
         *resp_to_client.status_mut() = StatusCode::OK;
@@ -250,12 +244,12 @@ impl RequestContext {
 
 
 
-    pub async fn handle_forwarding(&mut self) -> RequestState {
+    pub async fn handle_forwarding(&mut self, config: &Config) -> RequestState {
 
 
         let ap_req = self.ap_req.as_ref().unwrap();
 
-        let proxy_stream = match TcpStream::connect((self.proxy_ip.clone(), self.proxy_port)).await{
+        let proxy_stream = match TcpStream::connect((config.proxy_ip.clone(), config.proxy_port)).await{
             Ok(stream) => stream,
             Err(e) => {
                 self.last_error = StateErrors::FailedProxyConnection;
@@ -302,16 +296,15 @@ impl RequestContext {
     }
 
     pub async fn handle_closing(&mut self) -> RequestState {
-        // Handle closing the connection
-        // This is where you would typically clean up resources
-        // For now, we'll just simulate it with a sleep
+
+        // Handle closing - examine states, return errors, clean resources, etc
 
         return RequestState::Closing;
     }
 
 }
 
-fn empty() -> BoxBody<Bytes, hyper::Error> {
+pub fn empty() -> BoxBody<Bytes, hyper::Error> {
     Empty::<Bytes>::new()
         .map_err(|never| match never {})
         .boxed()
