@@ -46,7 +46,7 @@ Run the proxy:
 krb5proxy doesn't resolve ip yet but needs to have a properly configured parrent proxy hostname for getting the right TGS ticket 
 
 Typical usage:
-- Configure http_proxy and https_proxy environment variables to to point `http://127.0.0.1:8080`
+- Configure http_proxy and https_proxy environment variables to point `http://127.0.0.1:8080`
 - krb5proxy will forward requests to `10.0.0.1:3128` using Kerberos authentication.
 
 ## Help
@@ -98,7 +98,7 @@ OPTIONS:
 
 ## Authors
 
-[@veldrane](https://github.com/veldrane)
+[-veldrane](https://github.com/veldrane)
 
 ## Version History
 
