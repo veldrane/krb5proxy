@@ -32,33 +32,6 @@ cargo build --release
 
 The resulting binary will be in `target/release/krb5proxy`.
 
-### Help
-
-```
-$ target/release/krb5proxy --help
-krb5proxy 0.1.0
-A tiny proxy to forward requests with Kerberos authentication to parrent proxy
-
-USAGE:
-    krb5proxy [OPTIONS] --proxy <PROXY> --proxy-hostname <PROXY_HOSTNAME>
-
-OPTIONS:
-    -h, --help
-            Print help information
-
-    -l, --listen <LISTEN>
-            Listen address in the format http://<ip>:<port> - default is http://127.0.0.1:8080
-            [default: http://127.0.0.1:8080]
-
-    -p, --proxy <PROXY>
-            Parrent proxy string in the format <ip>:<port>
-
-        --proxy-hostname <PROXY_HOSTNAME>
-            Parent proxy hostname
-
-    -V, --version
-            Print version information
-```
 
 ### Executing program
 
@@ -91,6 +64,34 @@ kinit your-principal@YOUR.REALM
 ```
 
 If you have a right permissions krb5proxy asks for TGS ticket for authentization on the parrent proxy.
+
+For krb5proxy parameters:
+
+```
+$ target/release/krb5proxy --help
+krb5proxy 0.1.0
+A tiny proxy to forward requests with Kerberos authentication to parrent proxy
+
+USAGE:
+    krb5proxy [OPTIONS] --proxy <PROXY> --proxy-hostname <PROXY_HOSTNAME>
+
+OPTIONS:
+    -h, --help
+            Print help information
+
+    -l, --listen <LISTEN>
+            Listen address in the format http://<ip>:<port> - default is http://127.0.0.1:8080
+            [default: http://127.0.0.1:8080]
+
+    -p, --proxy <PROXY>
+            Parrent proxy string in the format <ip>:<port>
+
+        --proxy-hostname <PROXY_HOSTNAME>
+            Parent proxy hostname
+
+    -V, --version
+            Print version information
+```
 
 ## Authors
 
