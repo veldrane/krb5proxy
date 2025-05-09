@@ -112,7 +112,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 Inspired by:
-* [CNTLM]https://sourceforge.net/projects/cntlm/
+* [Cntlm](https://sourceforge.net/projects/cntlm/)
 
 Built with:
 * [Tokio](https://tokio.rs/)
