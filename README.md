@@ -112,4 +112,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## Acknowledgments
 
 Inspired by:
-* https://sourceforge.net/projects/cntlm/
+* [CNTLM]https://sourceforge.net/projects/cntlm/
+
+Built with:
+* [Tokio](https://tokio.rs/)
+* [Hyper](https://hyper.rs/)
+* [libgssapi](https://github.com/heim-rs/gssapi)
+* Wireshark, strace - some hours of debugging ;)
+ 
