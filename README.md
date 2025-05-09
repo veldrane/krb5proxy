@@ -67,12 +67,14 @@ Prepare your environment with a valid Kerberos ticket (e.g., using `kinit`) or e
 Run the proxy:
 
 ```bash
-./target/release/krb5proxy --listen 127.0.0.1:8080 --upstream http://upstream-proxy:3128
+./target/release/krb5proxy --listen http://127.0.0.1:8080 --proxy http://10.0.0.1:3128 --proxy-hostname proxy.foo.com
 ```
+
+krb5proxy doesn't resolve ip yet but needs to have a properly configured parrent proxy hostname for getting the right TGS ticket 
 
 Typical usage:
 - Configure your client (e.g., browser, curl) to use `http://127.0.0.1:8080` as its proxy.
-- krb5proxy will forward requests to `upstream-proxy:3128` using Kerberos authentication.
+- krb5proxy will forward requests to `10.0.0.1:3128` using Kerberos authentication.
 
 ## Help
 
@@ -87,6 +89,8 @@ If you encounter authentication issues, try renewing or initializing your ticket
 ```bash
 kinit your-principal@YOUR.REALM
 ```
+
+If you have a right permissions krb5proxy asks for TGS ticket for authentization on the parrent proxy.
 
 ## Authors
 
