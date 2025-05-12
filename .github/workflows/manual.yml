@@ -24,7 +24,7 @@ jobs:
       run: | 
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup-init.sh
         chmod +x rustup-init.sh
-        ./rustup-init.sh -y --default-toolchain stable none
+        ./rustup-init.sh -y --default-toolchain stable
 
     - name: Install dependencies
       run: sudo apt-get update && sudo apt-get install -y krb5-user
