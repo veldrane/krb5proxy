@@ -14,14 +14,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Install dependencies
-      run: sudo apt-get update && sudo apt-get install -y krb5-user
 
     - name: Install Rust
       run: | 
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup-init.sh
         chmod +x rustup-init.sh
         ./rustup-init.sh -y --default-toolchain stable none
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y krb5-user
 
     - name: Build release
       run: cargo build --release
