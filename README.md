@@ -58,7 +58,14 @@ Make sure your Kerberos environment is properly configured (how to configure ker
 You can validate your ticket using:
 
 ```bash
-klist
+# klist
+Ticket cache: KCM:0
+Default principal: student4@CLASS.SYSCALLX86.COM
+
+Valid starting       Expires              Service principal
+05/07/2025 20:13:43  05/08/2025 19:31:31  krbtgt/CLASS.SYSCALLX86.COM@CLASS.SYSCALLX86.COM
+05/07/2025 20:13:47  05/08/2025 19:31:31  HTTP/proxy.class.syscallx86.com@CLASS.SYSCALLX86.COM
+
 ```
 
 If you encounter authentication issues, try renewing or initializing your ticket:

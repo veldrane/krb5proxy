@@ -8,7 +8,29 @@ Always validate the settings against your organization's security policies and i
 
 ## Table of Contents
 
+- [Kerberos client configuration](#kerberos-client-configuration)
 - [Squid Proxy Example Krb5/Ldap auth](#squid-proxy-integration)
+
+## Kerberos client configuration
+
+krb5proxy requires a properly configured Kerberos client, as it needs to request a TGS and generate an AP-REQ.
+Below are some important configuration paths. This example demonstrates integration with IPA IDM and the lab 
+realm class.syscallx86.com.
+
+```bash
+[realms]
+  CLASS.SYSCALLX86.COM = {
+    pkinit_anchors = FILE:/var/lib/ipa-client/pki/kdc-ca-bundle.pem
+    pkinit_pool = FILE:/var/lib/ipa-client/pki/ca-bundle.pem
+  }
+
+[domain_realm]
+  .class.syscallx86.com = CLASS.SYSCALLX86.COM
+  class.syscallx86.com = CLASS.SYSCALLX86.COM
+  jump.class.syscallx86.com = CLASS.SYSCALLX86.COM
+```
+
+See the provided full example in [`contrib/krb5/krb5.conf`](../contrib/krb5/krb5.conf).
 
 ## Squid Proxy Integration
 
