@@ -6,6 +6,8 @@ on:
       - 'v*'
   pull_request:
     branches: [ master ]
+  permissions:
+    contents: write
 
 jobs:
   build:
@@ -54,3 +56,5 @@ jobs:
       with:
         files: |
           krb5proxy-${{ env.VERSION }}-linux-x86_64.tar.gz
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
