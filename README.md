@@ -108,7 +108,7 @@ using Squid, Active Directory, and related infrastructure.
 
 ## Version History
 
-* 0.1.0
+* 0.1.5
     * Initial public release
 
 ## License
