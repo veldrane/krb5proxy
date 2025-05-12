@@ -97,6 +97,10 @@ OPTIONS:
     -V, --version
             Print version information
 ```
+## Integration
+
+See [docs/integration.md](docs/integrations.md) for deployment and configuration examples
+using Squid, Active Directory, and related infrastructure.
 
 ## Authors
 
