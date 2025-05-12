@@ -16,6 +16,7 @@ and relays HTTP requests to the next hop, supporting both regular HTTP requests 
 ### Dependencies
 
 * Linux (tested on Rocky Linux 9, Ubuntu 24.04)
+* Rust and cargo for building
 * krb5-libs and krb5-workstation installed (MIT Kerberos)
 * Valid Kerberos configuration in `/etc/krb5.conf`
 * Valid Kerberos ticket or system keytab for the proxy service
@@ -27,10 +28,11 @@ Clone this repository and build using Cargo:
 ```bash
 git clone https://github.com/veldrane/krb5proxy.git
 cd krb5proxy
-cargo build --release
+make
+make install
 ```
 
-The resulting binary will be in `target/release/krb5proxy`.
+.. or you can use standard cargo tool for building, the resulting binary will be in `target/release/krb5proxy`.
 
 
 ### Executing program
@@ -40,7 +42,7 @@ Prepare your environment with a valid Kerberos ticket (e.g., using `kinit`) or e
 Run the proxy:
 
 ```bash
-./target/release/krb5proxy --listen http://127.0.0.1:8080 --proxy http://10.0.0.1:3128 --proxy-hostname proxy.foo.com
+krb5proxy --listen http://127.0.0.1:8080 --proxy http://10.0.0.1:3128 --proxy-hostname proxy.foo.com
 ```
 
 krb5proxy doesn't resolve ip yet but needs to have a properly configured parrent proxy hostname for getting the right TGS ticket 
@@ -115,6 +117,7 @@ Inspired by:
 * [Cntlm](https://sourceforge.net/projects/cntlm/)
 
 Built with:
+* [Rust](https://www.rust-lang.org/)
 * [Tokio](https://tokio.rs/)
 * [Hyper](https://hyper.rs/)
 * [libgssapi](https://github.com/heim-rs/gssapi)
