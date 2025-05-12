@@ -47,7 +47,7 @@ jobs:
         tar -czf krb5proxy-${{ env.VERSION }}-linux-x86_64.tar.gz -C dist krb5proxy
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: krb5proxy-${{ env.VERSION }}-linux-x86_64
         path: krb5proxy-${{ env.VERSION }}-linux-x86_64.tar.gz
