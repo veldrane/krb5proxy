@@ -7,6 +7,12 @@ on:
       - 'v*'
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Optional version override (leave empty for auto-detect)'
+        required: false
+        default: ''
 
 
 jobs:
@@ -14,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
     - name: Install Rust
       run: | 
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup-init.sh
