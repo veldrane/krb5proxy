@@ -1,0 +1,54 @@
+name: Build krb5proxy - manual trigger
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Optional version override (leave empty for auto-detect)'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y krb5-user
+
+    - name: Install Rust
+      uses: actions/setup-rust@v1
+      with:
+        rust-version: stable
+
+    - name: Build release
+      run: cargo build --release
+
+    - name: Get tag version
+      if: startsWith(github.ref, 'refs/tags/')
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+    - name: Set default version if not tag
+      if: "!startsWith(github.ref, 'refs/tags/')"
+      run: echo "VERSION=dev-$(date +%Y%m%d)" >> $GITHUB_ENV
+
+    - name: Package as tar.gz
+      run: |
+        mkdir -p dist
+        cp target/release/krb5proxy dist/
+        tar -czf krb5proxy-${{ env.VERSION }}-linux-x86_64.tar.gz -C dist krb5proxy
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: krb5proxy-${{ env.VERSION }}-linux-x86_64
+        path: krb5proxy-${{ env.VERSION }}-linux-x86_64.tar.gz
