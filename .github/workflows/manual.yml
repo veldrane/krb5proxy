@@ -2,11 +2,11 @@ name: Build krb5proxy - manual trigger
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
     tags:
       - 'v*'
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
   workflow_dispatch:
     inputs:
       version:
@@ -30,7 +30,7 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y krb5-user libkrb5-dev
 
     - name: Build release
-      run: pwd && cd ../ && cargo build --release
+      run: ls -ltRa && cargo build --release
 
     - name: Get tag version
       if: startsWith(github.ref, 'refs/tags/')
