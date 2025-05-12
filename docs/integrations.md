@@ -8,9 +8,7 @@ Always validate the settings against your organization's security policies and i
 
 ## Table of Contents
 
-- [Squid Proxy Integration](#squid-proxy-integration)
-- [Limitations](#limitations)
-- [Contributions](#contributions)
+- [Squid Proxy Example Krb5/Ldap auth](#squid-proxy-integration)
 
 ## Squid Proxy Integration
 
