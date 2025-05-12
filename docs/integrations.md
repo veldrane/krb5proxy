@@ -40,5 +40,5 @@ In this example, any user from the realm class.syscallx86.com (i.e. a Kerberos t
 the proxyusers group is allowed to pass through the proxy.
 
 
-See the provided example in [`contrib/squid/example-squid.conf`](contrib/squid/squid.conf).
+See the provided example in [`contrib/squid/squid.conf`](../contrib/squid/squid.conf).
 
