@@ -225,6 +225,12 @@ impl RequestContext {
                     // benigní stav: peer poslal FIN a pak shutdown; můžeme to ignorovat
                     println!("Tunel ENOTCONN při shutdown, ignoruji");
                 }
+                Err(e) if e.kind() == ErrorKind::BrokenPipe => {
+                    // benigní stav: peer poslal FIN a pak shutdown; můžeme to ignorovat
+                    println!("Tunel Skoncil, ignoruji");
+                    let _ = proxy_stream.shutdown().await;
+                    let _ = client_io.shutdown().await;
+                }
                 Err(e) => {
                     println!("Tunel selhal: {:?}", e);
                 }
