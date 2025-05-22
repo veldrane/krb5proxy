@@ -1,3 +1,5 @@
+![krb5proxy logo](./images/krb5proxy.png) <!-- markdownlint-disable-line first-line-heading -->
+
 # krb5proxy
 
 Kerberos-aware HTTP proxy for environments requiring Proxy-Authorization with Negotiate (Kerberos) scheme.
@@ -65,7 +67,6 @@ Default principal: student4@CLASS.SYSCALLX86.COM
 Valid starting       Expires              Service principal
 05/07/2025 20:13:43  05/08/2025 19:31:31  krbtgt/CLASS.SYSCALLX86.COM@CLASS.SYSCALLX86.COM
 05/07/2025 20:13:47  05/08/2025 19:31:31  HTTP/proxy.class.syscallx86.com@CLASS.SYSCALLX86.COM
-
 ```
 
 If you encounter authentication issues, try renewing or initializing your ticket:
