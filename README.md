@@ -1,4 +1,6 @@
-![krb5proxy logo](./images/krb5proxy.png) <!-- markdownlint-disable-line first-line-heading -->
+<p align="center">
+  <img src="./images/krb5proxy.png" alt="krb5proxy logo" width="180"/>
+</p>
 
 # krb5proxy
 
