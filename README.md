@@ -1,8 +1,8 @@
+# krb5proxy
+
 <p align="left">
   <img src="./images/krb5proxy-transparent.png" alt="krb5proxy logo" width="180"/>
 </p>
-
-# krb5proxy
 
 Kerberos-aware HTTP proxy for environments requiring Proxy-Authorization with Negotiate (Kerberos) scheme.
 
