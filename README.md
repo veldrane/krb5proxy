@@ -1,5 +1,5 @@
 <p align="left">
-  <img src="./images/krb5proxy.png" alt="krb5proxy logo" width="180"/>
+  <img src="./images/krb5proxy-transparent.png" alt="krb5proxy logo" width="180"/>
 </p>
 
 # krb5proxy
