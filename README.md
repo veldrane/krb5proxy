@@ -4,11 +4,10 @@
   <img src="./images/krb5proxy-transparent.png" alt="krb5proxy logo" width="180"/>
 </p>
 
-Kerberos-aware HTTP proxy for environments requiring Proxy-Authorization with Negotiate (Kerberos) scheme.
-
 ![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)
 ![Build](https://github.com/veldrane/krb5proxy/actions/workflows/build.yml/badge.svg)
 
+Kerberos-aware HTTP proxy for environments requiring Proxy-Authorization with Negotiate (Kerberos) scheme.
 
 ## Description
 
