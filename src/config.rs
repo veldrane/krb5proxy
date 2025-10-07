@@ -7,6 +7,7 @@ pub struct Config {
     pub proxy_port: u16,
     pub kerberos_service: Vec<u8>,
     pub listen_address: String,
+    pub log_output: String,
 }
 
 impl Config {
@@ -16,6 +17,7 @@ impl Config {
             proxy_port: 8080,
             kerberos_service: b"HTTP@localhost".to_vec(),
             listen_address: "http://127.0.0.1:8080".to_string(),
+            log_output: "console".to_string(),
         }
     }
 
@@ -36,6 +38,11 @@ impl Config {
 
     pub fn with_listen_address(mut self, address: String) -> Self {
         self.listen_address = address;
+        self
+    }
+
+    pub fn with_log_output(mut self, output: String) -> Self {
+        self.log_output = output;
         self
     }
 

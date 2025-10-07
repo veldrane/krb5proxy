@@ -1,6 +1,8 @@
 use krb5proxy::config;
 use tokio::net::TcpListener;
 use std::net::SocketAddr;
+use std::sync::Arc;
+use krb5proxy::logging::Logger;
 
 
 use bytes::Bytes;
@@ -30,8 +32,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .with_proxy_port(args.get_proxy_port())
         .with_kerberos_service(args.get_kerberos_service())
         .with_listen_address(args.get_listen())
+        .with_log_output("console".to_string())
         .build());
 
+    let log = Arc::new(Logger::build(&config.log_output));
 
     let ip: std::net::IpAddr = config.get_listen_ip()
         .parse()
@@ -41,23 +45,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let addr = SocketAddr::new(ip, port);
 
     let listener = TcpListener::bind(addr).await?;
-    println!("Listening on http://{}:{}", ip, port);
+    //println!("Listening on http://{}:{}", ip, port);
+
+    log.info("Listening on http://".to_string() + &config.get_listen_ip() + ":" + &config.get_listen_port().to_string()).await;
 
     loop {
         let (stream, _) = listener.accept().await?;
         let io = TokioIo::new(stream);
-
         let config = config.clone();
+        let log = log.clone();
 
         tokio::task::spawn(async move {
             if let Err(err) = ServerBuilder::new()
                 .preserve_header_case(true)
                 .title_case_headers(true)
-                .serve_connection(io, service_fn(|req| request_machine(req, config.clone())))
+                .serve_connection(io, service_fn(|req| request_machine(req, config.clone(), log.clone())))
                 .with_upgrades()
                 .await
             {
-                println!("Failed to serve connection: {:?}", err);
+                log.error(format!("Failed to serve connection: {:?}", err)).await;
             }
         });
     }
@@ -66,14 +72,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 }
 
 
-async fn request_machine(req: Request<hyper::body::Incoming>, config: std::sync::Arc<Config>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
+async fn request_machine(req: Request<hyper::body::Incoming>, config: std::sync::Arc<Config>, log: Arc<Logger>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
 
     let mut state = RequestState::WaitingForRequest;
     let mut context = RequestContext::new(req).await;
 
+
 loop {
-    
-    state = state.next(&mut context, &config).await;
+
+    let log = log.clone();
+
+    state = state.next(&mut context, &config, log).await;
 
     if matches!(state, RequestState::Closing) {
         break; // konec práce
