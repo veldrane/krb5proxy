@@ -1,3 +1,4 @@
+use chrono::format;
 use libgssapi::name::Name;
 use libgssapi::oid::{OidSet, GSS_NT_HOSTBASED_SERVICE, GSS_MECH_KRB5};
 use libgssapi::credential::{Cred, CredUsage};
@@ -9,11 +10,13 @@ use hyper::{Request, Response};
 use bytes::Bytes;
 use hyper::Error;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty};
+use std::sync::Arc;
 
 use http::StatusCode;
 
 type ClientBuilder = hyper::client::conn::http1::Builder;
 use crate::config::Config;
+use crate::logging::Logger;
 
 #[path = "../benches/support/mod.rs"]
 mod support;
@@ -53,13 +56,13 @@ pub struct RequestContext {
 
 impl RequestState {
 
-pub async fn next(self, ctx: &mut RequestContext, config: &Config) -> RequestState {
+pub async fn next(self, ctx: &mut RequestContext, config: &Config, log: Arc<Logger>) -> RequestState {
     match self {
         RequestState::WaitingForRequest => ctx.handle_waiting_for_request().await,
-        RequestState::GettingTicket => ctx.handle_getting_ticket(&config).await,
-        RequestState::ConnectingToProxy => ctx.handle_connecting_to_proxy(&config).await,
-        RequestState::Tunelling => ctx.handle_tunelling().await,
-        RequestState::Forwarding => ctx.handle_forwarding(&config).await,
+        RequestState::GettingTicket => ctx.handle_getting_ticket(&config, log).await,
+        RequestState::ConnectingToProxy => ctx.handle_connecting_to_proxy(&config, log).await,
+        RequestState::Tunelling => ctx.handle_tunelling(log).await,
+        RequestState::Forwarding => ctx.handle_forwarding(&config, log).await,
         RequestState::Closing => ctx.handle_closing().await,
         }
     }
@@ -87,7 +90,7 @@ impl RequestContext {
         return RequestState::GettingTicket;
     }
 
-    pub async fn handle_getting_ticket(&mut self, config: &Config) -> RequestState {
+    pub async fn handle_getting_ticket(&mut self, config: &Config, log: Arc<Logger>) -> RequestState {
 
         self.last_state = RequestState::GettingTicket;
 
@@ -98,7 +101,8 @@ impl RequestContext {
             Ok(name) => name,
             Err(e) => {
                 self.last_error = StateErrors::FailedGettingServiceTicket;
-                self.error_message = Some(format!("Failed to prepare TGS request: {:#?}", e));
+                //self.error_message = Some(format!("Failed to prepare TGS request: {:#?}", e));
+                log.error(format!("Failed to prepare TGS request: {:#?}", e)).await;
                 return RequestState::Closing;
             }
         };
@@ -112,7 +116,8 @@ impl RequestContext {
             },
             Err(e) => {
                 self.last_error = StateErrors::FailedGettingServiceTicket;
-                self.error_message = Some(format!("Failed to create client context: {:#?}", e));
+                //self.error_message = Some(format!("Failed to create client context: {:#?}", e));
+                log.error(format!("Failed to create client context: {:#?}", e)).await;
                 return RequestState::Closing;
             }
         };
@@ -122,7 +127,8 @@ impl RequestContext {
             Ok(t) => t,
             Err(e) => {
                 self.last_error = StateErrors::FailedGettingServiceTicket;
-                self.error_message = Some(format!("Failed to get AP-REQ token: {:#?}", e));
+                //self.error_message = Some(format!("Failed to get AP-REQ token: {:#?}", e));
+                log.error(format!("Failed to get AP-REQ token: {:#?}", e)).await;
                 return RequestState::Closing;
             }
         };
@@ -131,11 +137,13 @@ impl RequestContext {
         let ap_req = match gss_buffer {
             Some(buf) => {
                 let b64 = base64::engine::general_purpose::STANDARD.encode(buf.as_ref());
+                //log.info(format!("Obtained AP-REQ token {}", b64)).await;
                 format!("Negotiate {}", b64)
             },
             None => {
                 self.last_error = StateErrors::FailedGettingServiceTicket;
-                self.error_message = Some("Failed to encode AP-REQ token".to_string());
+                //self.error_message = Some("Failed to encode AP-REQ token".to_string());
+                log.error(format!("Failed to encode AP-REQ token")).await;
                 return RequestState::Closing;
             },
         };
@@ -147,7 +155,7 @@ impl RequestContext {
     }
 
 
-    pub async fn handle_connecting_to_proxy(&mut self, config: &Config) -> RequestState {
+    pub async fn handle_connecting_to_proxy(&mut self, config: &Config, log: Arc<Logger>) -> RequestState {
 
         self.last_state = RequestState::ConnectingToProxy;
 
@@ -160,7 +168,8 @@ impl RequestContext {
             Ok(stream) => stream,
             Err(e) => {
                 self.last_error = StateErrors::FailedProxyConnection;
-                self.error_message = Some(format!("Failed to connect to proxy: {:#?}", e));
+                //self.error_message = Some(format!("Failed to connect to proxy: {:#?}", e));
+                log.error(format!("Failed to connect to proxy: {:#?}", e)).await;
                 return RequestState::Closing;
             }
         };
@@ -177,7 +186,8 @@ impl RequestContext {
             Ok(_) => {} //println!("CONNECT request sent to proxy"),
             Err(e) => {
                 self.last_error = StateErrors::FailedProxyConnection;
-                self.error_message = Some(format!("Failed to send CONNECT request: {:#?}", e));
+                //self.error_message = Some(format!("Failed to send CONNECT request: {:#?}", e));
+                log.error(format!("Failed to send CONNECT request: {:#?}", e)).await;
                 return RequestState::Closing;
             }
         }
@@ -196,7 +206,7 @@ impl RequestContext {
         return RequestState::Tunelling;
     }
 
-    pub async fn handle_tunelling(&mut self) -> RequestState {
+    pub async fn handle_tunelling(&mut self, log: Arc<Logger>) -> RequestState {
 
         self.last_state = RequestState::Tunelling;
 
@@ -216,23 +226,23 @@ impl RequestContext {
             let mut client_io = TokioIo::new(upgraded_client);  
             match tokio::io::copy_bidirectional(&mut client_io, &mut proxy_stream).await {
                 Ok((from_client, from_server)) => {
-                    println!(
-                        "client wrote {} bytes and received {} bytes for uri {}",
-                        from_client, from_server, original_request.uri()
-                    );
+                    log.info(format!("Transfer finished, client wrote {} bytes and received {} bytes for uri {}", from_client, from_server, original_request.uri())).await;
                 }
                 Err(e) if e.kind() == ErrorKind::NotConnected => {
                     // benigní stav: peer poslal FIN a pak shutdown; můžeme to ignorovat
-                    println!("Tunel ENOTCONN při shutdown, ignoruji");
+                    log.info(format!("Tunel ENOTCONN during shutdown, ignore...")).await;
+                    //println!("Tunel ENOTCONN při shutdown, ignoruji");
                 }
                 Err(e) if e.kind() == ErrorKind::BrokenPipe => {
                     // benigní stav: peer poslal FIN a pak shutdown; můžeme to ignorovat
-                    println!("Tunel Skoncil, ignoruji");
+                    //println!("Tunel Skoncil, ignoruji");
+                    log.info(format!("Tunel BROKENPIPE during shutdown, ignore...")).await;
                     let _ = proxy_stream.shutdown().await;
                     let _ = client_io.shutdown().await;
                 }
                 Err(e) => {
-                    println!("Tunel selhal: {:?}", e);
+                    //println!("Tunel selhal: {:?}", e);
+                    log.error(format!("Tunel failed: {:?}", e)).await;
                 }
             }
         });
@@ -250,7 +260,7 @@ impl RequestContext {
 
 
 
-    pub async fn handle_forwarding(&mut self, config: &Config) -> RequestState {
+    pub async fn handle_forwarding(&mut self, config: &Config, log: Arc<Logger>) -> RequestState {
 
 
         let ap_req = self.ap_req.as_ref().unwrap();
@@ -259,7 +269,8 @@ impl RequestContext {
             Ok(stream) => stream,
             Err(e) => {
                 self.last_error = StateErrors::FailedProxyConnection;
-                self.error_message = Some(format!("Failed to connect to proxy: {:#?}", e));
+                //self.error_message = Some(format!("Failed to connect to proxy: {:#?}", e));
+                log.error(format!("Failed to connect to proxy: {:#?}", e)).await;
                 return RequestState::Closing;
             }
         };
@@ -274,14 +285,16 @@ impl RequestContext {
                 Ok(conn) => conn,
                 Err(e) => {
                     self.last_error = StateErrors::FailedProxyConnection;
-                    self.error_message = Some(format!("Failed to connect to proxy: {:#?}", e));
+                    //self.error_message = Some(format!("Failed to connect to proxy: {:#?}", e));
+                    log.error(format!("Failed to connect to proxy: {:#?}", e)).await;
                     return RequestState::Closing;
                 }
             };
 
         tokio::task::spawn(async move {
             if let Err(err) = proxy_conn.await {
-                println!("Connection failed: {:?}", err);
+                //println!("Connection failed: {:?}", err);
+                log.error(format!("Connection failed: {:?}", err)).await;
             }
         });
 
