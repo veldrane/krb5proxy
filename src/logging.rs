@@ -2,6 +2,7 @@
 use tokio::sync::mpsc;
 use chrono::prelude::*;
 
+#[derive(Debug)]
 pub struct Logger {
     tx: mpsc::Sender<LogMessage>,
     _logger: tokio::task::JoinHandle<()>,

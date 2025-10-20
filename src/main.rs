@@ -26,16 +26,14 @@ type ServerBuilder = hyper::server::conn::http1::Builder;
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let args = Args::new();
-
+    let log = build_logger(&args).await;
     let config = std::sync::Arc::new(config::Config::builder()
         .with_proxy_ip(args.get_proxy_ip())
         .with_proxy_port(args.get_proxy_port())
         .with_kerberos_service(args.get_kerberos_service())
         .with_listen_address(args.get_listen())
-        .with_log_output("console".to_string())
+        .with_logger(log.clone())
         .build());
-
-    let log = Arc::new(Logger::build(&config.log_output));
 
     let ip: std::net::IpAddr = config.get_listen_ip()
         .parse()
@@ -45,7 +43,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let addr = SocketAddr::new(ip, port);
 
     let listener = TcpListener::bind(addr).await?;
-    //println!("Listening on http://{}:{}", ip, port);
 
     log.info("Listening on http://".to_string() + &config.get_listen_ip() + ":" + &config.get_listen_port().to_string()).await;
 
@@ -59,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             if let Err(err) = ServerBuilder::new()
                 .preserve_header_case(true)
                 .title_case_headers(true)
-                .serve_connection(io, service_fn(|req| request_machine(req, config.clone(), log.clone())))
+                .serve_connection(io, service_fn(|req| request_machine(req, config.clone())))
                 .with_upgrades()
                 .await
             {
@@ -72,24 +69,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 }
 
 
-async fn request_machine(req: Request<hyper::body::Incoming>, config: std::sync::Arc<Config>, log: Arc<Logger>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
+async fn request_machine(req: Request<hyper::body::Incoming>, config: std::sync::Arc<Config>) -> Result<Response<BoxBody<Bytes, hyper::Error>>, hyper::Error> {
 
     let mut state = RequestState::WaitingForRequest;
     let mut context = RequestContext::new(req).await;
 
-
 loop {
-
-    let log = log.clone();
-
-    state = state.next(&mut context, &config, log).await;
+    state = state.next(&mut context, &config).await;
 
     if matches!(state, RequestState::Closing) {
-        break; // konec práce
+        break; // exit the loop to return response
         }
     }
-
-    // println!("state: {:?}", context);
 
     let resp_to_client = match  context.original_response.take() {
         Some(response) => {
@@ -102,11 +93,9 @@ loop {
         }
     };
 
-    //Ok(response.map(|b| b.boxed()))
-
-    //let mut resp_to_client = Response::new(empty());
-    //*resp_to_client.status_mut() = StatusCode::OK;
-
     Ok(resp_to_client)
+}
 
+async fn build_logger(args: &Args) -> Arc<Logger> {
+    Arc::new(Logger::build(args.get_log().as_str()))
 }

@@ -1,5 +1,6 @@
 use std::u16;
-
+use std::sync::Arc;
+use crate::logging::Logger;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -7,7 +8,8 @@ pub struct Config {
     pub proxy_port: u16,
     pub kerberos_service: Vec<u8>,
     pub listen_address: String,
-    pub log_output: String,
+    //pub log_output: String,
+    pub log: Arc<Logger>
 }
 
 impl Config {
@@ -17,7 +19,8 @@ impl Config {
             proxy_port: 8080,
             kerberos_service: b"HTTP@localhost".to_vec(),
             listen_address: "http://127.0.0.1:8080".to_string(),
-            log_output: "console".to_string(),
+            log: Arc::new(Logger::build("console")),
+            //log_output: "console".to_string(),
         }
     }
 
@@ -41,8 +44,13 @@ impl Config {
         self
     }
 
-    pub fn with_log_output(mut self, output: String) -> Self {
-        self.log_output = output;
+    //pub fn with_log_output(mut self, output: String) -> Self {
+    //    self.log_output = output;
+    //    self
+    //}
+
+    pub fn with_logger(mut self, logger: Arc<Logger>) -> Self {
+        self.log = logger;
         self
     }
 
@@ -66,5 +74,9 @@ impl Config {
             Some(port) => port.parse::<u16>().unwrap_or(8080),
             None => 8080,
         }
+    }
+
+    pub fn log (&self) -> Arc<Logger> {
+        self.log.clone()
     }
 }

@@ -1,4 +1,3 @@
-use chrono::format;
 use libgssapi::name::Name;
 use libgssapi::oid::{OidSet, GSS_NT_HOSTBASED_SERVICE, GSS_MECH_KRB5};
 use libgssapi::credential::{Cred, CredUsage};
@@ -10,13 +9,11 @@ use hyper::{Request, Response};
 use bytes::Bytes;
 use hyper::Error;
 use http_body_util::{combinators::BoxBody, BodyExt, Empty};
-use std::sync::Arc;
 
 use http::StatusCode;
 
 type ClientBuilder = hyper::client::conn::http1::Builder;
 use crate::config::Config;
-use crate::logging::Logger;
 
 #[path = "../benches/support/mod.rs"]
 mod support;
@@ -56,13 +53,13 @@ pub struct RequestContext {
 
 impl RequestState {
 
-pub async fn next(self, ctx: &mut RequestContext, config: &Config, log: Arc<Logger>) -> RequestState {
+pub async fn next(self, ctx: &mut RequestContext, config: &Config) -> RequestState {
     match self {
         RequestState::WaitingForRequest => ctx.handle_waiting_for_request().await,
-        RequestState::GettingTicket => ctx.handle_getting_ticket(&config, log).await,
-        RequestState::ConnectingToProxy => ctx.handle_connecting_to_proxy(&config, log).await,
-        RequestState::Tunelling => ctx.handle_tunelling(log).await,
-        RequestState::Forwarding => ctx.handle_forwarding(&config, log).await,
+        RequestState::GettingTicket => ctx.handle_getting_ticket(&config).await,
+        RequestState::ConnectingToProxy => ctx.handle_connecting_to_proxy(&config).await,
+        RequestState::Tunelling => ctx.handle_tunelling(&config).await,
+        RequestState::Forwarding => ctx.handle_forwarding(&config).await,
         RequestState::Closing => ctx.handle_closing().await,
         }
     }
@@ -90,7 +87,9 @@ impl RequestContext {
         return RequestState::GettingTicket;
     }
 
-    pub async fn handle_getting_ticket(&mut self, config: &Config, log: Arc<Logger>) -> RequestState {
+    pub async fn handle_getting_ticket(&mut self, config: &Config) -> RequestState {
+
+        let log = config.log();
 
         self.last_state = RequestState::GettingTicket;
 
@@ -155,7 +154,9 @@ impl RequestContext {
     }
 
 
-    pub async fn handle_connecting_to_proxy(&mut self, config: &Config, log: Arc<Logger>) -> RequestState {
+    pub async fn handle_connecting_to_proxy(&mut self, config: &Config) -> RequestState {
+
+        let log = config.log();
 
         self.last_state = RequestState::ConnectingToProxy;
 
@@ -206,7 +207,9 @@ impl RequestContext {
         return RequestState::Tunelling;
     }
 
-    pub async fn handle_tunelling(&mut self, log: Arc<Logger>) -> RequestState {
+    pub async fn handle_tunelling(&mut self, config: &Config) -> RequestState {
+
+        let log = config.log();
 
         self.last_state = RequestState::Tunelling;
 
@@ -260,7 +263,9 @@ impl RequestContext {
 
 
 
-    pub async fn handle_forwarding(&mut self, config: &Config, log: Arc<Logger>) -> RequestState {
+    pub async fn handle_forwarding(&mut self, config: &Config) -> RequestState {
+
+        let log = config.log();
 
 
         let ap_req = self.ap_req.as_ref().unwrap();

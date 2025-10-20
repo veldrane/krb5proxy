@@ -14,6 +14,8 @@ pub struct Args {
     /// Listen address in the format http://<ip>:<port> - default is http://127.0.0.1:8080
     #[clap(short, long, default_value = "http://127.0.0.1:8080")]
     listen: String,
+    #[clap(short, long, default_value = "console")]
+    log: String,
 
 }
 
@@ -41,5 +43,9 @@ impl Args {
 
     pub fn get_listen(&self) -> String {
         self.listen.clone()
+    }
+
+    pub fn get_log(&self) -> String {
+        self.log.clone()
     }
 }
